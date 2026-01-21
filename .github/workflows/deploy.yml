@@ -1,0 +1,53 @@
+name: Deploy Telegram Bot
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install serverless
+        pip install -r requirements.txt
+        
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+        
+    - name: Deploy to AWS Lambda
+      run: |
+        cd serverless
+        serverless deploy --stage production
+        
+    - name: Setup webhook
+      run: |
+        # Получаем URL функции и устанавливаем webhook
+        FUNCTION_URL=$(cd serverless && serverless info --stage production | grep 'ServiceEndpoint:' | cut -d' ' -f2)
+        WEBHOOK_URL="${FUNCTION_URL}/webhook"
+        
+        # Устанавливаем webhook через API Telegram
+        curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/setWebhook" \
+          -H "Content-Type: application/json" \
+          -d "{\"url\": \"$WEBHOOK_URL\", \"drop_pending_updates\": true}"
+          
+    - name: Notify deployment
+      run: |
+        echo "🚀 Бот успешно развернут!"
+        echo "📡 Webhook URL: $WEBHOOK_URL"

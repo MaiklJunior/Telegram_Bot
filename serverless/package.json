@@ -1,0 +1,11 @@
+{
+  "name": "telegram-media-bot-serverless",
+  "version": "1.0.0",
+  "description": "Serverless deployment for Telegram Media Downloader Bot",
+  "dependencies": {
+    "serverless-python-requirements": "^6.0.0"
+  },
+  "devDependencies": {
+    "serverless": "^3.38.0"
+  }
+}

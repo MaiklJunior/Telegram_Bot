@@ -1,0 +1,10 @@
+aiogram==3.4.1
+aiohttp==3.9.1
+pydantic-settings==2.1.0
+loguru==0.7.2
+beautifulsoup4==4.12.2
+lxml==5.0.0
+yt-dlp==2023.12.30
+instaloader==4.10.3
+requests==2.31.0
+python-dotenv==1.0.0

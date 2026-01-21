@@ -1,0 +1,44 @@
+service: telegram-media-bot
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.11
+  region: us-east-1  # Выберите ближайший регион
+  memorySize: 512
+  timeout: 30
+  environment:
+    TELEGRAM_BOT_TOKEN: ${env:TELEGRAM_BOT_TOKEN}
+    WEBHOOK_URL: ${env:WEBHOOK_URL}
+    LOG_LEVEL: INFO
+    MAX_FILE_SIZE_MB: 50
+    TIMEOUT_SECONDS: 30
+
+functions:
+  bot:
+    handler: handler.main_handler
+    events:
+      - http:
+          path: /webhook
+          method: post
+          cors: true
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    layer: true
+    useDownloadCache: true
+    cacheLocation: .cache
+    slim: true
+    zip: true
+
+package:
+  patterns:
+    - '!**/__pycache__/**'
+    - '!**/*.pyc'
+    - '!**/node_modules/**'
+    - '!**/.git/**'
+    - '!tests/**'

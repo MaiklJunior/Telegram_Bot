@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build: .
+    container_name: telegram-media-bot
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+      - TIMEOUT_SECONDS=${TIMEOUT_SECONDS:-30}
+      - PROXY_URL=${PROXY_URL:-}
+    volumes:
+      - ./logs:/app/logs
+      - ./downloads:/app/downloads
+      - ./temp:/app/temp
+    networks:
+      - bot-network
+
+networks:
+  bot-network:
+    driver: bridge

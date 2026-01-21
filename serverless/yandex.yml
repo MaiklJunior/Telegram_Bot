@@ -1,0 +1,38 @@
+service: telegram-media-bot-yandex
+
+provider:
+  name: yandex-cloud
+  runtime: python311
+  
+  # Настройки для Yandex Cloud
+  service_account_id: ${env:SERVICE_ACCOUNT_ID}
+  folder_id: ${env:FOLDER_ID}
+  zone_id: ${env:ZONE_ID:ru-central1-a}
+  
+  # Переменные окружения
+  environment:
+    TELEGRAM_BOT_TOKEN: ${env:TELEGRAM_BOT_TOKEN}
+    LOG_LEVEL: INFO
+    MAX_FILE_SIZE_MB: 50
+    TIMEOUT_SECONDS: 30
+
+functions:
+  bot:
+    handler: handler.yandex_handler
+    memory: 512
+    timeout: 30
+    events:
+      - http:
+          path: /webhook
+          method: post
+
+plugins:
+  - serverless-yandex-cloud
+
+package:
+  patterns:
+    - '!**/__pycache__/**'
+    - '!**/*.pyc'
+    - '!**/node_modules/**'
+    - '!**/.git/**'
+    - '!tests/**'
