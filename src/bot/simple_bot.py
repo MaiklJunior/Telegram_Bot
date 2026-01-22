@@ -65,7 +65,7 @@ class SimpleTelegramBot:
 📎 <b>Поддерживаемые платформы:</b>
 • 📌 Pinterest - фото и видео
 • 🎵 TikTok - видео без водяных знаков
-• 📷 Instagram - фото (временно отключено)
+• 📷 Instagram - только фото
 
 💡 <b>Как использовать:</b>
 1. Отправьте ссылку на медиа
@@ -78,7 +78,8 @@ class SimpleTelegramBot:
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(text="📌 Pinterest", callback_data="info_pinterest"),
-                InlineKeyboardButton(text="🎵 TikTok", callback_data="info_tiktok")
+                InlineKeyboardButton(text="🎵 TikTok", callback_data="info_tiktok"),
+                InlineKeyboardButton(text="📷 Instagram", callback_data="info_instagram")
             ],
             [
                 InlineKeyboardButton(text="📖 Помощь", callback_data="help")
@@ -95,7 +96,7 @@ class SimpleTelegramBot:
 🔗 <b>Поддерживаемые ссылки:</b>
 • Pinterest: pinterest.com/pin/ID
 • TikTok: tiktok.com/@user/video/ID
-• Instagram: instagram.com/p/ID (отключено)
+• Instagram: instagram.com/p/ID (только фото)
 
 ⚡ <b>Особенности:</b>
 • Автоматическое определение платформы
@@ -133,8 +134,9 @@ class SimpleTelegramBot:
         
         if platform == 'instagram':
             await message.answer(
-                "❌ <b>Instagram временно отключен!</b>\n\n"
-                "📌 Используйте Pinterest или TikTok",
+                "📷 <b>Instagram - только фото!</b>\n\n"
+                "⚠️ Видео и Reels не поддерживаются\n"
+                "📸 Только обычные посты с фото",
                 parse_mode=ParseMode.HTML
             )
             return
@@ -240,6 +242,8 @@ class SimpleTelegramBot:
                 return await self._download_pinterest(url)
             elif platform == 'tiktok':
                 return await self._download_tiktok(url)
+            elif platform == 'instagram':
+                return await self._download_instagram(url)
             else:
                 return None, None, None
         except Exception as e:
@@ -344,6 +348,98 @@ class SimpleTelegramBot:
                                 data = await video_response.read()
                                 if len(data) > 1024:
                                     return data, f"pinterest_{pin_id}.mp4", "video"
+        except:
+            pass
+        return None
+    
+    async def _download_instagram(self, url: str) -> tuple[Optional[bytes], Optional[str], Optional[str]]:
+        """Скачать фото из Instagram (только фото, без видео)"""
+        try:
+            logger.info(f"Downloading Instagram photo: {url}")
+            
+            # Извлекаем shortcode
+            shortcode_match = re.search(r'/p/([^/]+)', url)
+            if not shortcode_match:
+                return None, None, None
+            
+            shortcode = shortcode_match.group(1)
+            
+            # Пробуем разные методы для фото
+            methods = [
+                self._instagram_direct,
+                self._instagram_embed,
+                self._instagram_scrape
+            ]
+            
+            for method in methods:
+                try:
+                    result = await method(url, shortcode)
+                    if result:
+                        return result
+                except:
+                    continue
+            
+            return None, None, None
+            
+        except Exception as e:
+            logger.error(f"Instagram photo download failed: {e}")
+            return None, None, None
+    
+    async def _instagram_direct(self, url: str, shortcode: str) -> Optional[tuple]:
+        """Прямой метод Instagram для фото"""
+        try:
+            # Пробуем прямой URL изображения
+            direct_url = f"https://instagram.com/p/{shortcode}/media"
+            
+            async with self.session.get(direct_url) as response:
+                if response.status == 200:
+                    data = await response.read()
+                    if len(data) > 1024 and not data.startswith(b'<'):
+                        return data, f"instagram_{shortcode}.jpg", "image"
+        except:
+            pass
+        return None
+    
+    async def _instagram_embed(self, url: str, shortcode: str) -> Optional[tuple]:
+        """Embed метод Instagram"""
+        try:
+            embed_url = f"https://www.instagram.com/p/{shortcode}/embed"
+            
+            async with self.session.get(embed_url) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    
+                    # Ищем URL изображения в embed
+                    img_match = re.search(r'"display_url":"([^"]+)"', html)
+                    if img_match:
+                        img_url = img_match.group(1).replace('\\/', '/')
+                        
+                        async with self.session.get(img_url) as img_response:
+                            if img_response.status == 200:
+                                data = await img_response.read()
+                                if len(data) > 1024:
+                                    return data, f"instagram_{shortcode}.jpg", "image"
+        except:
+            pass
+        return None
+    
+    async def _instagram_scrape(self, url: str, shortcode: str) -> Optional[tuple]:
+        """Scraping метод Instagram"""
+        try:
+            async with self.session.get(url) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    
+                    # Ищем изображения в meta тегах
+                    img_match = re.search(r'<meta property="og:image" content="([^"]+)"', html)
+                    if img_match:
+                        img_url = img_match.group(1)
+                        
+                        async with self.session.get(img_url) as img_response:
+                            if img_response.status == 200:
+                                data = await img_response.read()
+                                if len(data) > 1024:
+                                    return data, f"instagram_{shortcode}.jpg", "image"
         except:
             pass
         return None
