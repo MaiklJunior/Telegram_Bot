@@ -52,8 +52,7 @@ class TelegramBot:
         self.bot = Bot(
             token=settings.telegram_bot_token,
             default=DefaultBotProperties(
-                parse_mode=ParseMode.HTML,
-                disable_web_page_preview=True
+                parse_mode=ParseMode.HTML
             )
         )
         
