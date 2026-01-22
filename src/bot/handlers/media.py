@@ -6,7 +6,7 @@ from aiogram.types import Message, BufferedInputFile
 from aiogram.exceptions import TelegramAPIError
 from loguru import logger
 
-from services.media_downloader import MediaDownloader
+from services.enhanced_downloader import EnhancedMediaDownloader
 from config.settings import settings
 
 # Создаем роутер для обработки медиа
@@ -82,64 +82,67 @@ async def handle_media_link(message: Message):
     
     try:
         # Скачиваем медиа
-        async with MediaDownloader() as downloader:
-            media_data, file_type = await downloader.download_media(url)
+        downloader = await get_downloader()
+        media_data = await downloader.download_media(url)
             
-            if not media_data:
-                await loading_message.edit_text(
-                    f"❌ Не удалось скачать медиа с {platform}\n\n"
-                    f"Возможные причины:\n"
-                    f"• Медиа удалено или недоступно\n"
-                    f"• Приватный профиль\n"
-                    f"• Временные проблемы с платформой\n\n"
-                    f"Попробуйте другую ссылку."
-                )
-                return
-            
-            # Проверяем размер файла
-            file_size_mb = len(media_data) / (1024 * 1024)
-            if file_size_mb > settings.max_file_size_mb:
-                await loading_message.edit_text(
-                    f"❌ Файл слишком большой ({file_size_mb:.1f}MB)\n"
-                    f"Максимальный размер: {settings.max_file_size_mb}MB"
-                )
-                return
-            
-            # Определяем имя файла и тип
-            if file_type == 'video':
-                filename = f"{platform}_video_{user_id}.mp4"
-                caption = f"🎥 Видео из {platform}\n"
-            else:
-                filename = f"{platform}_photo_{user_id}.jpg"
-                caption = f"📸 Фото из {platform}\n"
-            
-            caption += f"📊 Размер: {file_size_mb:.1f}MB\n"
-            caption += f"✅ Качество: Максимальное доступное"
-            
-            # Создаем файл для отправки
-            input_file = BufferedInputFile(
-                file=media_data,
-                filename=filename
+        if not media_data:
+            await loading_message.edit_text(
+                f"❌ Не удалось скачать медиа с {platform}\n\n"
+                f"Возможные причины:\n"
+                f"• Медиа удалено или недоступно\n"
+                f"• Приватный профиль\n"
+                f"• Временные проблемы с платформой\n\n"
+                f"Попробуйте другую ссылку."
             )
+            return
             
-            # Отправляем файл
-            await loading_message.edit_text("📤 Отправляю файл...")
-            
-            if file_type == 'video':
-                await message.answer_video(
-                    video=input_file,
-                    caption=caption
-                )
-            else:
-                await message.answer_photo(
-                    photo=input_file,
-                    caption=caption
-                )
-            
-            # Удаляем сообщение о загрузке
-            await loading_message.delete()
-            
-            logger.info(f"Успешно отправлен файл пользователю {user_id} с {platform}")
+        # Проверяем размер файла
+        file_size_mb = len(media_data) / (1024 * 1024)
+        if file_size_mb > settings.max_file_size_mb:
+            await loading_message.edit_text(
+                f"❌ Файл слишком большой ({file_size_mb:.1f}MB)\n"
+                f"Максимальный размер: {settings.max_file_size_mb}MB"
+            )
+            return
+        
+        # Определяем тип файла по содержимому
+        file_type = 'video' if media_data[:4] == b'\x00\x00\x00\x18' else 'photo'
+        
+        # Определяем имя файла
+        if file_type == 'video':
+            filename = f"{platform}_video_{user_id}.mp4"
+            caption = f"🎥 Видео из {platform}\n"
+        else:
+            filename = f"{platform}_photo_{user_id}.jpg"
+            caption = f"📸 Фото из {platform}\n"
+        
+        caption += f"📊 Размер: {file_size_mb:.1f}MB\n"
+        caption += f"✅ Качество: Максимальное доступное"
+        
+        # Создаем файл для отправки
+        input_file = BufferedInputFile(
+            file=media_data,
+            filename=filename
+        )
+        
+        # Отправляем файл
+        await loading_message.edit_text("📤 Отправляю файл...")
+        
+        if file_type == 'video':
+            await message.answer_video(
+                video=input_file,
+                caption=caption
+            )
+        else:
+            await message.answer_photo(
+                photo=input_file,
+                caption=caption
+            )
+        
+        # Удаляем сообщение о загрузке
+        await loading_message.delete()
+        
+        logger.info(f"Успешно отправлен файл пользователю {user_id} с {platform}")
             
     except asyncio.TimeoutError:
         await loading_message.edit_text(
