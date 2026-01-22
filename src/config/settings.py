@@ -25,4 +25,18 @@ class Settings(BaseSettings):
 
 
 # Глобальный экземпляр настроек
-settings = Settings()
+try:
+    settings = Settings()
+except Exception as e:
+    print(f"Error loading settings: {e}")
+    # Для Vercel используем переменные окружения
+    import os
+    class FallbackSettings:
+        telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN', '')
+        log_level = os.getenv('LOG_LEVEL', 'INFO')
+        webhook_url = os.getenv('WEBHOOK_URL')
+        max_file_size_mb = int(os.getenv('MAX_FILE_SIZE_MB', '50'))
+        timeout_seconds = int(os.getenv('TIMEOUT_SECONDS', '30'))
+        proxy_url = os.getenv('PROXY_URL')
+    
+    settings = FallbackSettings()

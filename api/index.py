@@ -4,7 +4,11 @@ import sys
 import os
 
 # Добавляем путь к src
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+src_path = os.path.join(parent_dir, 'src')
+if src_path not in sys.path:
+    sys.path.append(src_path)
 
 from bot.main import bot_instance
 

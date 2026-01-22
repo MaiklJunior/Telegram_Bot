@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from contextlib import suppress
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -14,18 +15,28 @@ from .handlers.media import router as media_router
 
 # Настройка логирования
 logger.remove()
-logger.add(
-    "logs/bot.log",
-    rotation="10 MB",
-    retention="7 days",
-    level=settings.log_level,
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
-)
-logger.add(
-    lambda msg: print(msg, end=""),
-    level=settings.log_level,
-    format="{time:HH:mm:ss} | {level} | {message}"
-)
+
+# Для serverless среды (Vercel) логируем только в консоль
+if os.getenv('VERCEL') or os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
+    logger.add(
+        lambda msg: print(msg, end=""),
+        level=settings.log_level,
+        format="{time:HH:mm:ss} | {level} | {message}"
+    )
+else:
+    # Для локальной разработки логируем в файл и консоль
+    logger.add(
+        "logs/bot.log",
+        rotation="10 MB",
+        retention="7 days",
+        level=settings.log_level,
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}"
+    )
+    logger.add(
+        lambda msg: print(msg, end=""),
+        level=settings.log_level,
+        format="{time:HH:mm:ss} | {level} | {message}"
+    )
 
 
 class TelegramBot:
