@@ -8,7 +8,7 @@ import asyncio
 # Добавляем путь к src
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from bot.main import bot_instance
+from bot.simple_bot import simple_bot
 
 app = FastAPI()
 
@@ -18,25 +18,30 @@ bot = None
 async def get_bot():
     global bot
     if bot is None:
-        bot = bot_instance
-        await bot.init_bot()
+        bot = simple_bot
+        await bot.__aenter__()
     return bot
 
 @app.on_event("startup")
 async def startup_event():
     """Инициализация бота при запуске"""
     global bot
-    bot = bot_instance
-    await bot.init_bot()
-    print("🚀 Telegram bot initialized for webhook mode")
+    bot = simple_bot
+    await bot.__aenter__()
+    print("🚀 Simple Telegram bot initialized for webhook mode")
 
 @app.get("/")
 async def root():
-    return {"status": "Telegram bot is running"}
+    return {
+        "status": "Simple Media Downloader is running",
+        "version": "1.0",
+        "platforms": ["Pinterest", "TikTok"],
+        "features": ["Direct download", "Best quality", "Simple interface"]
+    }
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "bot": "ready"}
 
 @app.post("/webhook")
 async def webhook(request: Request):
@@ -50,8 +55,12 @@ async def webhook(request: Request):
         # Получаем инициализированный бот
         bot = await get_bot()
         
+        # Создаем временное сообщение для обработки
+        from aiogram.types import Update
+        update = Update.model_validate(data)
+        
         # Обрабатываем обновление
-        await bot.handle_webhook_update(data)
+        await bot.dp.feed_update(bot.bot, update)
         
         return {"status": "ok"}
         

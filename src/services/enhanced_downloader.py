@@ -556,46 +556,8 @@ class EnhancedMediaDownloader:
         return None
     
     async def download_instagram_media(self, url: str) -> Optional[bytes]:
-        """Улучшенное скачивание Instagram с поддержкой видео"""
-        
-        # Сначала пробуем видео-специфичные методы
-        async with VideoDownloader() as video_downloader:
-            # Метод 1: Специализированный видео-даунлоадер
-            result = await video_downloader.download_instagram_video(url)
-            if result:
-                return result
-        
-        # Метод 2: yt-dlp
-        result = await self._instagram_ytdlp(url)
-        if result:
-            return result
-        
-        # Метод 3: Внешние сервисы
-        result = await self._instagram_instaloader(url)
-        if result:
-            return result
-        
-        # Метод 4: Instagram API эмуляция
-        result = await self._instagram_api(url)
-        if result:
-            return result
-        
-        # Метод 5: Мобильная версия
-        result = await self._instagram_mobile(url)
-        if result:
-            return result
-        
-        # Метод 6: Простой прямой метод
-        result = await self._instagram_simple(url)
-        if result:
-            return result
-        
-        # Метод 7: Новый API подход
-        result = await self._instagram_new_api(url)
-        if result:
-            return result
-        
-        logger.error(f"Все методы Instagram не сработали для: {url}")
+        """Instagram скачивание отключено"""
+        logger.info(f"Instagram download disabled for: {url}")
         return None
     
     async def _instagram_ytdlp(self, url: str) -> Optional[bytes]:
