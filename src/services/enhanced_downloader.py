@@ -215,36 +215,248 @@ class EnhancedMediaDownloader:
         """Улучшенное скачивание TikTok с поддержкой видео"""
         
         # Сначала пробуем видео-специфичные методы
-        async with VideoDownloader() as video_downloader:
-            # Метод 1: Специализированный видео-даунлоадер
-            result = await video_downloader.download_tiktok_video(url)
-            if result:
-                return result
+        try:
+            async with VideoDownloader() as video_downloader:
+                # Метод 1: Специализированный видео-даунлоадер
+                result = await video_downloader.download_tiktok_video(url)
+                if result:
+                    return result
+        except Exception as e:
+            logger.debug(f"VideoDownloader failed: {e}")
         
         # Метод 2: Cobalt API (Самый стабильный)
         result = await self._cobalt_api(url)
         if result:
             return result
 
-        # Метод 3: yt-dlp
-        result = await self._tiktok_ytdlp(url)
+        # Метод 3: yt-dlp с улучшенными опциями
+        result = await self._tiktok_ytdlp_improved(url)
         if result:
             return result
         
-        # Метод 4: TikTok API эмуляция
-        result = await self._tiktok_api(url)
+        # Метод 4: TikTok API эмуляция с fallback
+        result = await self._tiktok_api_improved(url)
         if result:
             return result
         
         # Метод 5: Альтернативные сервисы
-        result = await self._tiktok_alternative(url)
+        result = await self._tiktok_alternative_improved(url)
         if result:
             return result
         
         logger.error(f"Все методы TikTok не сработали для: {url}")
         return None
     
-    async def _tiktok_ytdlp(self, url: str) -> Optional[bytes]:
+    async def _tiktok_ytdlp_improved(self, url: str) -> Optional[bytes]:
+        """Улучшенный yt-dlp для TikTok с обходом блокировок"""
+        try:
+            logger.info(f"TikTok yt-dlp improved: {url}")
+            
+            ydl_opts = self.ydl_opts.copy()
+            ydl_opts.update({
+                'format': 'best[height<=720]',  # Ограничиваем качество
+                'extract_flat': False,
+                'ignoreerrors': True,
+                'no_check_certificate': True,
+                'socket_timeout': 20,
+                'retries': 3,
+                'fragment_retries': 3,
+                'extractor_args': {
+                    'tiktok': {
+                        'api_hostname': 'api16-normal-c-useast1a.tiktokv.com'
+                    }
+                }
+            })
+            
+            def download():
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=False)
+                        if info:
+                            if info.get('url'):
+                                return info.get('url')
+                            elif info.get('formats'):
+                                # Ищем формат без аудио или с лучшим качеством
+                                for fmt in info.get('formats', []):
+                                    if fmt.get('url') and fmt.get('vcodec') != 'none':
+                                        return fmt.get('url')
+                                # Fallback на любой доступный
+                                for fmt in info.get('formats', []):
+                                    if fmt.get('url'):
+                                        return fmt.get('url')
+                except Exception as e:
+                    logger.debug(f"yt-dlp TikTok improved error: {e}")
+                return None
+            
+            loop = asyncio.get_event_loop()
+            media_url = await loop.run_in_executor(None, download)
+            
+            if media_url and self.session:
+                # Добавляем заголовки для обхода блокировок
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Referer': 'https://www.tiktok.com/',
+                    'Accept': '*/*'
+                }
+                return await self._download_from_url_with_headers(media_url, headers)
+        
+        except Exception as e:
+            logger.debug(f"TikTok yt-dlp improved method failed: {e}")
+        return None
+    
+    async def _tiktok_api_improved(self, url: str) -> Optional[bytes]:
+        """Улучшенный TikTok API с множественными endpoints"""
+        try:
+            logger.info(f"TikTok API improved: {url}")
+            
+            # Извлекаем ID видео
+            video_id_match = re.search(r'/video/(\d+)', url)
+            if not video_id_match:
+                return None
+            
+            video_id = video_id_match.group(1)
+            
+            # Пробуем разные API endpoints
+            api_endpoints = [
+                f"https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?aweme_id={video_id}",
+                f"https://api16-normal-useast1a.tiktokv.com/aweme/v1/feed/?aweme_id={video_id}",
+                f"https://api22-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?aweme_id={video_id}",
+                f"https://api-h2.tiktokv.com/aweme/v1/feed/?aweme_id={video_id}"
+            ]
+            
+            for api_url in api_endpoints:
+                try:
+                    headers = {
+                        'User-Agent': 'com.zhiliaoapp.musically/2022600040 (Linux; U; Android 13; en_US; SM-G998B; Build/TP1A.220624.014; Cronet/TTNetVersion:8d79441e 2022-12-19 QuicVersion:0144c77e 2022-09-06)',
+                        'Accept-Encoding': 'gzip, deflate',
+                        'Connection': 'keep-alive'
+                    }
+                    
+                    async with self.session.get(api_url, headers=headers, timeout=15) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            aweme_list = data.get('aweme_list', [])
+                            if aweme_list:
+                                aweme = aweme_list[0]
+                                video = aweme.get('video', {})
+                                play_addr = video.get('play_addr', {})
+                                url_list = play_addr.get('url_list', [])
+                                if url_list:
+                                    # Берем первый URL (лучшее качество)
+                                    video_url = url_list[0]
+                                    return await self._download_from_url(video_url)
+                except Exception as e:
+                    logger.debug(f"TikTok API endpoint {api_url} failed: {e}")
+                    continue
+        
+        except Exception as e:
+            logger.debug(f"TikTok API improved method failed: {e}")
+        return None
+    
+    async def _tiktok_alternative_improved(self, url: str) -> Optional[bytes]:
+        """Улучшенные альтернативные сервисы"""
+        try:
+            logger.info(f"TikTok alternative improved: {url}")
+            
+            # Пробуем разные зеркала и сервисы
+            alternatives = [
+                {
+                    'name': 'TikMate',
+                    'url': f'https://tikmate.online/download?url={url}',
+                    'parser': self._parse_tikmate
+                },
+                {
+                    'name': 'SnapTik',
+                    'url': f'https://snaptik.app/abc?url={url}',
+                    'parser': self._parse_snaptik
+                },
+                {
+                    'name': 'MusicalDown',
+                    'url': f'https://musicaldown.com/download?url={url}',
+                    'parser': self._parse_musicaldown
+                },
+                {
+                    'name': 'TikSave',
+                    'url': f'https://tiksaver.io/download?url={url}',
+                    'parser': self._parse_tiksaver
+                }
+            ]
+            
+            for service in alternatives:
+                try:
+                    async with self.session.get(service['url'], timeout=20) as response:
+                        if response.status == 200:
+                            html = await response.text()
+                            video_url = await service['parser'](html)
+                            if video_url:
+                                return await self._download_from_url(video_url)
+                except Exception as e:
+                    logger.debug(f"{service['name']} failed: {e}")
+                    continue
+        
+        except Exception as e:
+            logger.debug(f"TikTok alternative improved method failed: {e}")
+        return None
+    
+    async def _parse_tikmate(self, html: str) -> Optional[str]:
+        """Парсер для TikMate"""
+        try:
+            # Ищем видео URL в ответе
+            video_match = re.search(r'(https://[^"\s]+\.mp4[^"\s]*)', html)
+            if video_match:
+                return video_match.group(1)
+        except:
+            pass
+        return None
+    
+    async def _parse_snaptik(self, html: str) -> Optional[str]:
+        """Парсер для SnapTik"""
+        try:
+            # Ищем видео URL в ответе
+            video_match = re.search(r'href="(https://[^"\s]+\.mp4[^"\s]*)"', html)
+            if video_match:
+                return video_match.group(1)
+        except:
+            pass
+        return None
+    
+    async def _parse_musicaldown(self, html: str) -> Optional[str]:
+        """Парсер для MusicalDown"""
+        try:
+            # Ищем видео URL в ответе
+            video_match = re.search(r'(https://[^"\s]+\.mp4[^"\s]*)', html)
+            if video_match:
+                return video_match.group(1)
+        except:
+            pass
+        return None
+    
+    async def _parse_tiksaver(self, html: str) -> Optional[str]:
+        """Парсер для TikSave"""
+        try:
+            # Ищем видео URL в ответе
+            video_match = re.search(r'(https://[^"\s]+\.mp4[^"\s]*)', html)
+            if video_match:
+                return video_match.group(1)
+        except:
+            pass
+        return None
+    
+    async def _download_from_url_with_headers(self, url: str, headers: dict) -> Optional[bytes]:
+        """Скачать медиа из URL с кастомными заголовками"""
+        try:
+            if not self.session or not url:
+                return None
+            
+            async with self.session.get(url, headers=headers, timeout=30) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    if len(content) > 1024:  # Проверяем что файл не пустой
+                        return content
+        
+        except Exception as e:
+            logger.debug(f"Download from URL with headers failed: {e}")
+        return None
         """Метод 1: yt-dlp для TikTok"""
         try:
             logger.info(f"TikTok yt-dlp: {url}")
