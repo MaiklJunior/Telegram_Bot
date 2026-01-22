@@ -343,6 +343,11 @@ class EnhancedMediaDownloader:
         if result:
             return result
         
+        # Метод 4: Мобильная версия (новый)
+        result = await self._instagram_mobile(url)
+        if result:
+            return result
+        
         logger.error(f"Все методы Instagram не сработали для: {url}")
         return None
     
@@ -403,10 +408,13 @@ class EnhancedMediaDownloader:
                         download_video_thumbnails=False,
                         compress_json=False,
                         request_timeout=30,
-                        sleep=False
+                        sleep=False,
+                        # Добавляем user-agent для обхода блокировок
+                        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     )
                     
-                    post = L.post_from_shortcode(shortcode)
+                    # Исправляем метод - правильный синтаксис
+                    post = instaloader.Post.from_shortcode(L.context, shortcode)
                     
                     if post.is_video:
                         return post.video_url
@@ -463,6 +471,46 @@ class EnhancedMediaDownloader:
         
         except Exception as e:
             logger.debug(f"Instagram API method failed: {e}")
+        return None
+    
+    async def _instagram_mobile(self, url: str) -> Optional[bytes]:
+        """Метод 4: Мобильная версия Instagram"""
+        try:
+            logger.info(f"Instagram mobile: {url}")
+            
+            # Конвертируем URL в мобильную версию
+            mobile_url = url.replace('instagram.com', 'ddinstagram.com')
+            
+            # Пробуем скачать напрямую
+            if self.session:
+                async with self.session.get(mobile_url, timeout=30) as response:
+                    if response.status == 200:
+                        html = await response.text()
+                        
+                        # Ищем прямые ссылки на медиа
+                        soup = BeautifulSoup(html, 'html.parser')
+                        
+                        # Ищем видео
+                        video_tags = soup.find_all('video')
+                        for video in video_tags:
+                            if video.get('src'):
+                                return await self._download_from_url(video.get('src'))
+                        
+                        # Ищем изображения
+                        img_tags = soup.find_all('meta', property='og:image')
+                        for img in img_tags:
+                            if img.get('content'):
+                                return await self._download_from_url(img.get('content'))
+                        
+                        # Ищем в тегах img
+                        img_tags = soup.find_all('img')
+                        for img in img_tags:
+                            src = img.get('src')
+                            if src and 'cdninstagram.com' in src:
+                                return await self._download_from_url(src)
+        
+        except Exception as e:
+            logger.debug(f"Instagram mobile method failed: {e}")
         return None
     
     async def _download_from_url(self, url: str) -> Optional[bytes]:
