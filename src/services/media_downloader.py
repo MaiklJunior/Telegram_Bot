@@ -54,6 +54,8 @@ class MediaDownloader:
             # Используем yt-dlp для Pinterest
             ydl_opts = self.ydl_opts.copy()
             ydl_opts['format'] = 'best'
+            ydl_opts['no_warnings'] = True
+            ydl_opts['quiet'] = True
             
             def download():
                 try:
@@ -61,6 +63,11 @@ class MediaDownloader:
                         info = ydl.extract_info(url, download=False)
                         if info and info.get('url'):
                             return info.get('url')
+                        elif info and info.get('formats'):
+                            # Пробуем первый доступный формат
+                            for fmt in info.get('formats', []):
+                                if fmt.get('url'):
+                                    return fmt.get('url')
                 except Exception as e:
                     logger.error(f"yt-dlp error for Pinterest: {e}")
                 return None
@@ -73,7 +80,11 @@ class MediaDownloader:
                 try:
                     async with self.session.get(media_url, timeout=30) as response:
                         if response.status == 200:
-                            return await response.read()
+                            content = await response.read()
+                            if len(content) > 1024:  # Проверяем что файл не пустой
+                                return content
+                            else:
+                                logger.warning("Pinterest media file is too small")
                         else:
                             logger.warning(f"Pinterest media URL returned status {response.status}")
                 except asyncio.TimeoutError:
