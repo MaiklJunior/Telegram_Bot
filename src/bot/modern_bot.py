@@ -39,10 +39,64 @@ class ModernTelegramBot:
             """Обработка текстовых сообщений"""
             await self._handle_media_link(message)
         
-        @self.router.callback_query(F.data.startswith("download_"))
-        async def handle_download(callback: CallbackQuery):
-            """Обработка кнопок скачивания"""
-            await self._process_download(callback)
+        @self.router.callback_query(F.data.startswith("info_"))
+        async def handle_info(callback: CallbackQuery):
+            """Обработка информационных кнопок"""
+            platform = callback.data.split("_")[1]
+            
+            info_texts = {
+                "pinterest": "📌 <b>Pinterest</b>\n\nПоддерживаемые форматы:\n• Изображения (JPEG, PNG)\n• Видео (MP4)\n• Анимации (GIF)\n\nОсобенности:\n• Высокое качество\n• Быстрая загрузка",
+                "tiktok": "🎵 <b>TikTok</b>\n\nПоддерживаемые форматы:\n• Видео без водяных знаков\n• Максимальное качество\n• Все форматы TikTok\n\nОсобенности:\n• Автоматическое удаление водяных знаков",
+                "instagram": "📷 <b>Instagram</b>\n\nПоддерживаемые форматы:\n• Фото и посты\n• Видео и Reels\n• Stories (публичные)\n\nОсобенности:\n• Лучшее доступное качество"
+            }
+            
+            text = info_texts.get(platform, "Информация о платформе")
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_start")
+                ]
+            ])
+            
+            await callback.message.edit_text(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+            await callback.answer()
+        
+        @self.router.callback_query(F.data == "help")
+        async def handle_help_callback(callback: CallbackQuery):
+            """Обработка кнопки помощи"""
+            await self._send_help(callback.message)
+            await callback.answer()
+        
+        @self.router.callback_query(F.data == "back_to_start")
+        async def handle_back_to_start(callback: CallbackQuery):
+            """Возврат в главное меню"""
+            await self._send_welcome(callback.message)
+            await callback.answer()
+        
+        @self.router.callback_query(F.data.startswith("retry_"))
+        async def handle_retry(callback: CallbackQuery):
+            """Повторная попытка скачивания"""
+            platform = callback.data.split("_")[1]
+            
+            text = f"""
+🔄 <b>Повторная попытка для {platform}</b>
+
+💡 <b>Советы:</b>
+• Убедитесь что ссылка правильная
+• Проверьте что профиль публичный
+• Попробуйте другой контент
+
+📎 <b>Отправьте новую ссылку для {platform}</b>
+            """
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="📖 Помощь", callback_data="help")
+                ]
+            ])
+            
+            await callback.message.edit_text(text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
+            await callback.answer()
     
     async def init_bot(self):
         """Инициализация бота"""

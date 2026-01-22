@@ -7,7 +7,13 @@ import json
 # Добавляем путь к src
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from bot.modern_bot import modern_bot
+try:
+    from bot.modern_bot import modern_bot
+except ImportError as e:
+    print(f"Import error: {e}")
+    # Пробуем альтернативный импорт
+    sys.path.append(os.path.join(os.path.dirname(__file__), 'src', 'bot'))
+    from modern_bot import modern_bot
 
 app = FastAPI(
     title="Modern Telegram Media Downloader",
