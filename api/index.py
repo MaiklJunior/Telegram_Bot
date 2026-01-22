@@ -52,5 +52,43 @@ async def handler(request):
 
 
 # Vercel entry point
+def lambda_handler(event, context):
+    """AWS Lambda style handler для Vercel"""
+    import asyncio
+    
+    # Конвертируем event в request объект
+    class MockRequest:
+        def __init__(self, event):
+            self.method = event.get('httpMethod', 'GET')
+            self.headers = event.get('headers', {})
+            
+            # Парсим тело
+            body = event.get('body', '{}')
+            if isinstance(body, str):
+                self._body = body
+            else:
+                self._body = json.dumps(body) if body else '{}'
+        
+        async def json(self):
+            return json.loads(self._body)
+    
+    request = MockRequest(event)
+    
+    # Запускаем асинхронный handler
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        result = loop.run_until_complete(handler(request))
+        return {
+            'statusCode': result['statusCode'],
+            'body': result['body'],
+            'headers': {'Content-Type': 'application/json'}
+        }
+    finally:
+        loop.close()
+
+
+# Для Vercel
 async def main(request):
     return await handler(request)

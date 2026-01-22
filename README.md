@@ -41,7 +41,7 @@ nano .env
 ```
 
 Обязательно заполните:
-- `TELEGRAM_BOT_TOKEN` - токен вашего бота от @BotFather
+- `8449129663:AAEHFLl66qDVNB2YXmGh3zvYpo88OisTJ5Y` - токен вашего бота от @BotFather
 
 ### 4. Запуск в режиме разработки
 ```bash
@@ -68,11 +68,16 @@ serverless deploy --stage production
 ```
 
 ### 4. Настройка Webhook
+
 После развертывания получите URL функции и установите webhook:
 ```bash
-curl -X POST "https://api.telegram.org/botYOUR_TOKEN/setWebhook" \
+# Используйте готовый скрипт
+.\webhook.bat
+
+# Или вручную (замените ВАШ_ТОКЕН)
+curl -X POST "https://api.telegram.org/botВАШ_ТОКЕН/setWebhook" \
   -H "Content-Type: application/json" \
-  -d "{\"url\": \"YOUR_FUNCTION_URL/webhook\", \"drop_pending_updates\": true}"
+  -d "{\"url\": \"https://telegram-d8ayc73q7-mihails-projects-b1dd402a.vercel.app/webhook\", \"drop_pending_updates\": true}"
 ```
 
 ## 🔄 Автоматическое развертывание (CI/CD)
