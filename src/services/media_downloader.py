@@ -56,20 +56,30 @@ class MediaDownloader:
             ydl_opts['format'] = 'best'
             
             def download():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=False)
-                    if info:
-                        return info.get('url')
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=False)
+                        if info and info.get('url'):
+                            return info.get('url')
+                except Exception as e:
+                    logger.error(f"yt-dlp error for Pinterest: {e}")
                 return None
             
             # Выполняем в отдельном потоке чтобы не блокировать event loop
             loop = asyncio.get_event_loop()
             media_url = await loop.run_in_executor(None, download)
             
-            if media_url:
-                async with self.session.get(media_url) as response:
-                    if response.status == 200:
-                        return await response.read()
+            if media_url and self.session:
+                try:
+                    async with self.session.get(media_url, timeout=30) as response:
+                        if response.status == 200:
+                            return await response.read()
+                        else:
+                            logger.warning(f"Pinterest media URL returned status {response.status}")
+                except asyncio.TimeoutError:
+                    logger.error("Timeout downloading Pinterest media")
+                except Exception as e:
+                    logger.error(f"Error downloading Pinterest media: {e}")
             
             return None
             
@@ -87,19 +97,29 @@ class MediaDownloader:
             ydl_opts['format'] = 'best'
             
             def download():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=False)
-                    if info:
-                        return info.get('url')
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=False)
+                        if info and info.get('url'):
+                            return info.get('url')
+                except Exception as e:
+                    logger.error(f"yt-dlp error for TikTok: {e}")
                 return None
             
             loop = asyncio.get_event_loop()
             media_url = await loop.run_in_executor(None, download)
             
-            if media_url:
-                async with self.session.get(media_url) as response:
-                    if response.status == 200:
-                        return await response.read()
+            if media_url and self.session:
+                try:
+                    async with self.session.get(media_url, timeout=30) as response:
+                        if response.status == 200:
+                            return await response.read()
+                        else:
+                            logger.warning(f"TikTok media URL returned status {response.status}")
+                except asyncio.TimeoutError:
+                    logger.error("Timeout downloading TikTok media")
+                except Exception as e:
+                    logger.error(f"Error downloading TikTok media: {e}")
             
             return None
             
@@ -117,19 +137,29 @@ class MediaDownloader:
             ydl_opts['format'] = 'best'
             
             def download():
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url, download=False)
-                    if info:
-                        return info.get('url')
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=False)
+                        if info and info.get('url'):
+                            return info.get('url')
+                except Exception as e:
+                    logger.error(f"yt-dlp error for Instagram: {e}")
                 return None
             
             loop = asyncio.get_event_loop()
             media_url = await loop.run_in_executor(None, download)
             
-            if media_url:
-                async with self.session.get(media_url) as response:
-                    if response.status == 200:
-                        return await response.read()
+            if media_url and self.session:
+                try:
+                    async with self.session.get(media_url, timeout=30) as response:
+                        if response.status == 200:
+                            return await response.read()
+                        else:
+                            logger.warning(f"Instagram media URL returned status {response.status}")
+                except asyncio.TimeoutError:
+                    logger.error("Timeout downloading Instagram media")
+                except Exception as e:
+                    logger.error(f"Error downloading Instagram media: {e}")
             
             return None
             

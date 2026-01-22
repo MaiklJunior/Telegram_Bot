@@ -27,6 +27,9 @@ class Settings(BaseSettings):
 # Глобальный экземпляр настроек
 try:
     settings = Settings()
+    # Проверяем наличие токена
+    if not settings.telegram_bot_token:
+        raise ValueError("TELEGRAM_BOT_TOKEN не указан в переменных окружения")
 except Exception as e:
     print(f"Error loading settings: {e}")
     # Для Vercel используем переменные окружения
@@ -40,3 +43,7 @@ except Exception as e:
         proxy_url = os.getenv('PROXY_URL')
     
     settings = FallbackSettings()
+    
+    # Проверяем токен снова
+    if not settings.telegram_bot_token:
+        raise ValueError("TELEGRAM_BOT_TOKEN не указан в переменных окружения")
