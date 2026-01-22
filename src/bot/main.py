@@ -8,9 +8,9 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError
 from loguru import logger
 
-from ..config.settings import settings
-from .handlers.commands import router as commands_router
-from .handlers.media import router as media_router
+from config.settings import settings
+from bot.handlers.commands import router as commands_router
+from bot.handlers.media import router as media_router
 
 
 # Настройка логирования

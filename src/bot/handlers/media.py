@@ -6,8 +6,8 @@ from aiogram.types import Message, BufferedInputFile
 from aiogram.exceptions import TelegramAPIError
 from loguru import logger
 
-from ...services.media_downloader import MediaDownloader
-from ...config.settings import settings
+from services.media_downloader import MediaDownloader
+from config.settings import settings
 
 # Создаем роутер для обработки медиа
 router = Router()
