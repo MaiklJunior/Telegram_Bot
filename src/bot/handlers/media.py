@@ -82,67 +82,77 @@ async def handle_media_link(message: Message):
     
     try:
         # Скачиваем медиа
-        downloader = await get_downloader()
-        media_data = await downloader.download_media(url)
+        async with EnhancedMediaDownloader() as downloader:
+            result = await downloader.download_media(url)
             
-        if not media_data:
+        items = result.get('items', [])
+        post_text = result.get('text')
+            
+        if not items:
             await loading_message.edit_text(
                 f"❌ Не удалось скачать медиа с {platform}\n\n"
-                f"Возможные причины:\n"
-                f"• Медиа удалено или недоступно\n"
-                f"• Приватный профиль\n"
-                f"• Временные проблемы с платформой\n\n"
                 f"Попробуйте другую ссылку."
             )
             return
             
-        # Проверяем размер файла
-        file_size_mb = len(media_data) / (1024 * 1024)
-        if file_size_mb > settings.max_file_size_mb:
-            await loading_message.edit_text(
-                f"❌ Файл слишком большой ({file_size_mb:.1f}MB)\n"
-                f"Максимальный размер: {settings.max_file_size_mb}MB"
-            )
-            return
-        
-        # Определяем тип файла по содержимому
-        file_type = 'video' if media_data[:4] == b'\x00\x00\x00\x18' else 'photo'
-        
-        # Определяем имя файла
-        if file_type == 'video':
-            filename = f"{platform}_video_{user_id}.mp4"
-            caption = f"🎥 Видео из {platform}\n"
-        else:
-            filename = f"{platform}_photo_{user_id}.jpg"
-            caption = f"📸 Фото из {platform}\n"
-        
-        caption += f"📊 Размер: {file_size_mb:.1f}MB\n"
-        caption += f"✅ Качество: Максимальное доступное"
-        
-        # Создаем файл для отправки
-        input_file = BufferedInputFile(
-            file=media_data,
-            filename=filename
-        )
-        
-        # Отправляем файл
-        await loading_message.edit_text("📤 Отправляю файл...")
-        
-        if file_type == 'video':
-            await message.answer_video(
-                video=input_file,
-                caption=caption
-            )
-        else:
-            await message.answer_photo(
-                photo=input_file,
-                caption=caption
-            )
-        
-        # Удаляем сообщение о загрузке
+        # Удаляем сообщение о загрузке перед отправкой файлов
         await loading_message.delete()
         
-        logger.info(f"Успешно отправлен файл пользователю {user_id} с {platform}")
+        # Инфо о боте для подписи
+        bot_info = await message.bot.get_me()
+        bot_username = bot_info.username
+        
+        # Отправляем текст поста, если он есть
+        if post_text:
+            await message.answer(f"📝 <b>Текст поста:</b>\n\n{post_text}", parse_mode="HTML")
+            
+        for i, item in enumerate(items):
+            media_data = item['data']
+            file_type = item['type']
+            
+            # Проверяем размер файла
+            file_size_mb = len(media_data) / (1024 * 1024)
+            if file_size_mb > settings.max_file_size_mb:
+                await message.answer(f"⚠️ Файл {i+1} слишком большой ({file_size_mb:.1f}MB) и был пропущен.")
+                continue
+
+            # Определяем имя и подпись
+            suffix = f"_{i+1}" if len(items) > 1 else ""
+            if file_type == 'video':
+                filename = f"video_{user_id}{suffix}.mp4"
+                caption = f"Рад был помочь! Ваш, @{bot_username}"
+            else:
+                filename = f"photo_{user_id}{suffix}.jpg"
+                caption = f"Рад был помочь! Ваш, @{bot_username}"
+            
+            # Создаем файл
+            input_file = BufferedInputFile(file=media_data, filename=filename)
+            
+            if file_type == 'video':
+                await message.answer_video(video=input_file, caption=caption)
+            else:
+                # Отправляем как фото
+                await message.answer_photo(photo=input_file, caption=caption)
+                
+                # Отправляем как документ (для ценителей качества)
+                doc_file = BufferedInputFile(file=media_data, filename=filename)
+                await message.answer_document(
+                    document=doc_file,
+                    caption="Для ценителей качества — изображение документом!"
+                )
+        
+        # Отправляем сообщение про донат
+        await message.answer(
+            "👋 Нравится бот? Поддержите его автора донатом и получите в благодарность бонусную подписку!\n\n"
+            "<b>Что она даёт:</b>\n"
+            "— отключение рекламы;\n"
+            "— отсутствие просьб подписаться на «Семейку ботов»;\n"
+            "— скачивание медиа без подписей.\n\n"
+            "Нажмите /donate, чтобы выбрать удобный способ поддержки.",
+            parse_mode="HTML"
+        )
+        
+        logger.info(f"Успешно отправлено {len(items)} файлов пользователю {user_id} с {platform}")
             
     except asyncio.TimeoutError:
         await loading_message.edit_text(

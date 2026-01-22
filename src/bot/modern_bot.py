@@ -225,14 +225,13 @@ class ModernTelegramBot:
         
         try:
             # Скачиваем медиа
-            media_data = await self.downloader.download_media(url)
+            media_data, file_type = await self.downloader.download_media(url)
             
             if not media_data:
                 await self._send_download_error(loading_message, platform)
                 return
             
-            # Определяем тип файла
-            file_type = self._detect_file_type(media_data)
+            # Получаем размер
             file_size_mb = len(media_data) / (1024 * 1024)
             
             # Проверяем размер

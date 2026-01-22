@@ -46,7 +46,7 @@ class EnhancedMediaDownloader:
             return 'pinterest'
         
         # TikTok patterns (более точные)
-        if re.search(r'tiktok\.com/@|tiktok\.com/t/|douyin\.com', url_lower):
+        if re.search(r'tiktok\.com|douyin\.com', url_lower):
             return 'tiktok'
         
         # Instagram patterns (более точные)
@@ -58,7 +58,12 @@ class EnhancedMediaDownloader:
     async def download_pinterest_media(self, url: str) -> Optional[bytes]:
         """Улучшенное скачивание Pinterest с несколькими методами"""
         
-        # Метод 1: yt-dlp
+        # Метод 1: Cobalt API (Новый метод)
+        result = await self._cobalt_api(url)
+        if result:
+            return result
+
+        # Метод 2: yt-dlp
         result = await self._pinterest_ytdlp(url)
         if result:
             return result
@@ -208,7 +213,12 @@ class EnhancedMediaDownloader:
     async def download_tiktok_media(self, url: str) -> Optional[bytes]:
         """Улучшенное скачивание TikTok"""
         
-        # Метод 1: yt-dlp
+        # Метод 1: Cobalt API (Самый стабильный)
+        result = await self._cobalt_api(url)
+        if result:
+            return result
+
+        # Метод 2: yt-dlp
         result = await self._tiktok_ytdlp(url)
         if result:
             return result
@@ -328,7 +338,12 @@ class EnhancedMediaDownloader:
     async def download_instagram_media(self, url: str) -> Optional[bytes]:
         """Улучшенное скачивание Instagram"""
         
-        # Метод 1: yt-dlp
+        # Метод 1: Cobalt API (Самый стабильный)
+        result = await self._cobalt_api(url)
+        if result:
+            return result
+
+        # Метод 2: yt-dlp
         result = await self._instagram_ytdlp(url)
         if result:
             return result
@@ -561,6 +576,70 @@ class EnhancedMediaDownloader:
             logger.debug(f"Instagram new API method failed: {e}")
         return None
     
+    async def _cobalt_api(self, url: str) -> List[dict]:
+        """Универсальный метод через Cobalt API. Возвращает список media-словарей."""
+        try:
+            logger.info(f"Cobalt API: {url}")
+            
+            instances = [
+                "https://api.cobalt.tools",
+                "https://co.wuk.sh",
+                "https://api.wuk.sh",
+                "https://cobalt.kanzen.me",
+            ]
+            
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+            
+            payload = {
+                "url": url,
+                "videoQuality": "max",
+                "filenamePattern": "basic",
+                "isAudioOnly": False,
+                "disableMetadata": False # Нам нужны метаданные для текста
+            }
+            
+            for base_url in instances:
+                try:
+                    result_items = []
+                    api_url = f"{base_url}/api/json"
+                    async with self.session.post(api_url, json=payload, headers=headers, timeout=10) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            
+                            if data.get('status') == 'error':
+                                logger.debug(f"Cobalt error on {base_url}: {data.get('text')}")
+                                continue
+                                
+                            # Если это стрим/пикер (карусель)
+                            if data.get('picker'):
+                                for item in data['picker']:
+                                    if item.get('url'):
+                                        content = await self._download_from_url(item['url'])
+                                        if content:
+                                            result_items.append({'data': content, 'url': item['url']})
+                            
+                            # Одиночное медиа
+                            elif data.get('url'):
+                                content = await self._download_from_url(data['url'])
+                                if content:
+                                    result_items.append({'data': content, 'url': data['url']})
+                            
+                            if result_items:
+                                logger.info(f"Got {len(result_items)} items from Cobalt ({base_url})")
+                                return result_items
+                                
+                except Exception as e:
+                    logger.debug(f"Failed Cobalt instance {base_url}: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.debug(f"Cobalt API method failed: {e}")
+        return []
+
     async def _download_from_url(self, url: str) -> Optional[bytes]:
         """Скачивает медиа из URL"""
         try:
@@ -584,16 +663,59 @@ class EnhancedMediaDownloader:
         
         return None
     
-    async def download_media(self, url: str) -> Optional[bytes]:
-        """Основной метод скачивания медиа"""
+    async def download_media(self, url: str) -> dict:
+        """Основной метод скачивания медиа. Возвращает словарь с items и text."""
         platform = self.detect_platform(url)
+        results = []
+        post_text = None
         
-        if platform == 'pinterest':
-            return await self.download_pinterest_media(url)
-        elif platform == 'tiktok':
-            return await self.download_tiktok_media(url)
-        elif platform == 'instagram':
-            return await self.download_instagram_media(url)
-        else:
-            logger.error(f"Unsupported platform: {platform}")
-            return None
+        # Сначала пробуем Cobalt (он лучший для каруселей и видео)
+        cobalt_items = await self._cobalt_api(url)
+        if cobalt_items:
+            for item in cobalt_items:
+                data, ftype = self._identify_media_type(item['data'])
+                results.append({'data': data, 'type': ftype})
+        
+        # Если Cobalt не сработал или пустой, пробуем специфические методы (одиночные)
+        if not results:
+            data = None
+            if platform == 'pinterest':
+                data = await self.download_pinterest_media(url)
+            elif platform == 'tiktok':
+                data = await self.download_tiktok_media(url)
+            elif platform == 'instagram':
+                data = await self.download_instagram_media(url)
+            
+            if data:
+                data, ftype = self._identify_media_type(data)
+                results.append({'data': data, 'type': ftype})
+
+        # Попытка извлечь текст (упрощенный скрапинг)
+        try:
+            async with self.session.get(url) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    soup = BeautifulSoup(html, 'html.parser')
+                    meta_desc = soup.find('meta', property='og:description')
+                    if meta_desc:
+                        post_text = meta_desc.get('content')
+        except:
+            pass
+            
+        return {'items': results, 'text': post_text}
+
+    def _identify_media_type(self, data: bytes) -> tuple[bytes, str]:
+        """Определяет тип файла по заголовку"""
+        if len(data) > 8 and data[4:8] == b'ftyp':
+            return data, 'video'
+        elif data.startswith(b'\xff\xd8\xff'):
+            return data, 'photo'
+        elif data.startswith(b'\x89PNG'):
+            return data, 'photo'
+        elif data.startswith(b'\x1a\x45\xdf\xa3'):
+            return data, 'video'
+        elif data.startswith(b'GIF8'):
+            return data, 'video'
+            
+        file_type = 'video' if len(data) > 2 * 1024 * 1024 else 'photo'
+        return data, file_type
