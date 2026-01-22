@@ -208,6 +208,10 @@ class ModernTelegramBot:
             )
             return
         
+        # Используем downloader для определения платформы
+        downloader_platform = self.downloader.detect_platform(url)
+        logger.info(f"Detected platform: {platform} (downloader: {downloader_platform})")
+        
         # Отправляем сообщение о начале загрузки
         loading_text = f"""
 🔍 <b>Обнаружена платформа:</b> {platform}
@@ -328,16 +332,20 @@ class ModernTelegramBot:
         """Определяет платформу по URL"""
         import re
         
-        patterns = {
-            'pinterest': [r'pinterest\.com', r'pin\.it'],
-            'tiktok': [r'tiktok\.com', r'douyin\.com'],
-            'instagram': [r'instagram\.com', r'instagr\.am']
-        }
+        # Приводим URL к нижнему регистру для проверки
+        url_lower = url.lower()
         
-        for platform, regexes in patterns.items():
-            for regex in regexes:
-                if re.search(regex, url, re.IGNORECASE):
-                    return platform
+        # Pinterest patterns
+        if re.search(r'pinterest\.com|pin\.it', url_lower):
+            return 'Pinterest'
+        
+        # TikTok patterns (более точные)
+        if re.search(r'tiktok\.com/@|tiktok\.com/t/|douyin\.com', url_lower):
+            return 'TikTok'
+        
+        # Instagram patterns (более точные)
+        if re.search(r'instagram\.com/p/|instagram\.com/reel/|instagram\.com/tv/|instagr\.am/p/', url_lower):
+            return 'Instagram'
         
         return 'unknown'
     

@@ -39,16 +39,20 @@ class EnhancedMediaDownloader:
     
     def detect_platform(self, url: str) -> str:
         """Определяет платформу по URL"""
-        patterns = {
-            'pinterest': [r'pinterest\.com', r'pin\.it', r'pinterest\.[a-z]{2}'],
-            'tiktok': [r'tiktok\.com', r'douyin\.com'],
-            'instagram': [r'instagram\.com', r'instagr\.am']
-        }
+        url_lower = url.lower()
         
-        for platform, regexes in patterns.items():
-            for regex in regexes:
-                if re.search(regex, url, re.IGNORECASE):
-                    return platform
+        # Pinterest patterns
+        if re.search(r'pinterest\.com|pin\.it', url_lower):
+            return 'pinterest'
+        
+        # TikTok patterns (более точные)
+        if re.search(r'tiktok\.com/@|tiktok\.com/t/|douyin\.com', url_lower):
+            return 'tiktok'
+        
+        # Instagram patterns (более точные)
+        if re.search(r'instagram\.com/p/|instagram\.com/reel/|instagram\.com/tv/|instagr\.am/p/', url_lower):
+            return 'instagram'
+        
         return 'unknown'
     
     async def download_pinterest_media(self, url: str) -> Optional[bytes]:
