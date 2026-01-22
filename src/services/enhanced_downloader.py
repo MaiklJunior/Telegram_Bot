@@ -1,12 +1,12 @@
 import asyncio
 import aiohttp
 import yt_dlp
-import instaloader
 import re
 from typing import Optional, List
 from loguru import logger
 from bs4 import BeautifulSoup
 import json
+from .instagram_api import InstagramAPIDownloader
 
 class EnhancedMediaDownloader:
     def __init__(self):
@@ -353,6 +353,11 @@ class EnhancedMediaDownloader:
         if result:
             return result
         
+        # Метод 6: Новый API подход
+        result = await self._instagram_new_api(url)
+        if result:
+            return result
+        
         logger.error(f"Все методы Instagram не сработали для: {url}")
         return None
     
@@ -542,6 +547,18 @@ class EnhancedMediaDownloader:
         
         except Exception as e:
             logger.debug(f"Instagram mobile method failed: {e}")
+        return None
+    
+    async def _instagram_new_api(self, url: str) -> Optional[bytes]:
+        """Метод 6: Новый API подход через внешние сервисы"""
+        try:
+            logger.info(f"Instagram new API: {url}")
+            
+            async with InstagramAPIDownloader() as api:
+                return await api.download_instagram_media(url)
+        
+        except Exception as e:
+            logger.debug(f"Instagram new API method failed: {e}")
         return None
     
     async def _download_from_url(self, url: str) -> Optional[bytes]:
