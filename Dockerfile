@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем исходный код
 COPY src/ ./src/
-COPY run_bot.py .
+COPY railway.py .
 
 # Создаем необходимые директории
 RUN mkdir -p logs downloads temp
@@ -29,8 +29,8 @@ RUN mkdir -p logs downloads temp
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 
-# Открываем порт (если понадобится для health check)
+# Открываем порт
 EXPOSE 8080
 
-# Команда запуска
-CMD ["python", "run_bot.py"]
+# Команда запуска для Railway (FastAPI сервер)
+CMD ["python", "railway.py"]
