@@ -333,7 +333,7 @@ class EnhancedMediaDownloader:
         if result:
             return result
         
-        # Метод 2: Instaloader
+        # Метод 2: Внешние сервисы
         result = await self._instagram_instaloader(url)
         if result:
             return result
@@ -343,8 +343,13 @@ class EnhancedMediaDownloader:
         if result:
             return result
         
-        # Метод 4: Мобильная версия (новый)
+        # Метод 4: Мобильная версия
         result = await self._instagram_mobile(url)
+        if result:
+            return result
+        
+        # Метод 5: Простой прямой метод
+        result = await self._instagram_simple(url)
         if result:
             return result
         
@@ -473,7 +478,31 @@ class EnhancedMediaDownloader:
             logger.debug(f"Instagram API method failed: {e}")
         return None
     
-    async def _instagram_mobile(self, url: str) -> Optional[bytes]:
+    async def _instagram_simple(self, url: str) -> Optional[bytes]:
+        """Метод 5: Простой прямой метод"""
+        try:
+            logger.info(f"Instagram simple: {url}")
+            
+            # Извлекаем shortcode
+            shortcode = url.split('/p/')[1].split('/')[0]
+            
+            # Создаем прямую URL для изображения
+            direct_url = f"https://instagram.com/p/{shortcode}/media"
+            
+            if self.session:
+                async with self.session.get(direct_url, timeout=15) as response:
+                    if response.status == 200:
+                        return await response.read()
+                    
+                    # Пробуем альтернативную URL
+                    alt_url = f"https://www.instagram.com/p/{shortcode}/media"
+                    async with self.session.get(alt_url, timeout=15) as response:
+                        if response.status == 200:
+                            return await response.read()
+        
+        except Exception as e:
+            logger.debug(f"Instagram simple method failed: {e}")
+        return None
         """Метод 4: Мобильная версия Instagram"""
         try:
             logger.info(f"Instagram mobile: {url}")
