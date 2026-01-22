@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем исходный код
 COPY src/ ./src/
-COPY railway_modern.py .
+COPY railway.py .
 
 # Создаем необходимые директории
 RUN mkdir -p logs downloads temp
@@ -33,4 +33,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 
 # Команда запуска для Railway (Modern FastAPI сервер)
-CMD ["python", "railway_modern.py"]
+CMD ["python", "railway.py"]
