@@ -8,3 +8,5 @@ yt-dlp==2025.12.08
 instaloader==4.15
 requests==2.31.0
 python-dotenv==1.0.0
+fastapi==0.104.1
+uvicorn==0.24.0

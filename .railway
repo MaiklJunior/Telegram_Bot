@@ -1,0 +1,9 @@
+# Railway Environment Variables
+# Скопируйте эти переменные в Railway Dashboard → Settings → Variables
+
+TELEGRAM_BOT_TOKEN=8449129663:AAEHFLl66qDVNB2YXmGh3zvYpo88OisTJ5Y
+PYTHON_VERSION=3.11
+PORT=8080
+LOG_LEVEL=INFO
+MAX_FILE_SIZE_MB=50
+TIMEOUT_SECONDS=30
