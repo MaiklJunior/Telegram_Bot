@@ -503,6 +503,8 @@ class EnhancedMediaDownloader:
         except Exception as e:
             logger.debug(f"Instagram simple method failed: {e}")
         return None
+    
+    async def _instagram_mobile(self, url: str) -> Optional[bytes]:
         """Метод 4: Мобильная версия Instagram"""
         try:
             logger.info(f"Instagram mobile: {url}")
