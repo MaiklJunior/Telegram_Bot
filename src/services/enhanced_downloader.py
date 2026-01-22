@@ -7,6 +7,7 @@ from loguru import logger
 from bs4 import BeautifulSoup
 import json
 from .instagram_api import InstagramAPIDownloader
+from .video_downloader import VideoDownloader
 
 class EnhancedMediaDownloader:
     def __init__(self):
@@ -211,24 +212,31 @@ class EnhancedMediaDownloader:
         return None
     
     async def download_tiktok_media(self, url: str) -> Optional[bytes]:
-        """Улучшенное скачивание TikTok"""
+        """Улучшенное скачивание TikTok с поддержкой видео"""
         
-        # Метод 1: Cobalt API (Самый стабильный)
+        # Сначала пробуем видео-специфичные методы
+        async with VideoDownloader() as video_downloader:
+            # Метод 1: Специализированный видео-даунлоадер
+            result = await video_downloader.download_tiktok_video(url)
+            if result:
+                return result
+        
+        # Метод 2: Cobalt API (Самый стабильный)
         result = await self._cobalt_api(url)
         if result:
             return result
 
-        # Метод 2: yt-dlp
+        # Метод 3: yt-dlp
         result = await self._tiktok_ytdlp(url)
         if result:
             return result
         
-        # Метод 2: TikTok API эмуляция
+        # Метод 4: TikTok API эмуляция
         result = await self._tiktok_api(url)
         if result:
             return result
         
-        # Метод 3: Альтернативные сервисы
+        # Метод 5: Альтернативные сервисы
         result = await self._tiktok_alternative(url)
         if result:
             return result
@@ -336,39 +344,41 @@ class EnhancedMediaDownloader:
         return None
     
     async def download_instagram_media(self, url: str) -> Optional[bytes]:
-        """Улучшенное скачивание Instagram"""
+        """Улучшенное скачивание Instagram с поддержкой видео"""
         
-        # Метод 1: Cobalt API (Самый стабильный)
-        result = await self._cobalt_api(url)
-        if result:
-            return result
-
+        # Сначала пробуем видео-специфичные методы
+        async with VideoDownloader() as video_downloader:
+            # Метод 1: Специализированный видео-даунлоадер
+            result = await video_downloader.download_instagram_video(url)
+            if result:
+                return result
+        
         # Метод 2: yt-dlp
         result = await self._instagram_ytdlp(url)
         if result:
             return result
         
-        # Метод 2: Внешние сервисы
+        # Метод 3: Внешние сервисы
         result = await self._instagram_instaloader(url)
         if result:
             return result
         
-        # Метод 3: Instagram API эмуляция
+        # Метод 4: Instagram API эмуляция
         result = await self._instagram_api(url)
         if result:
             return result
         
-        # Метод 4: Мобильная версия
+        # Метод 5: Мобильная версия
         result = await self._instagram_mobile(url)
         if result:
             return result
         
-        # Метод 5: Простой прямой метод
+        # Метод 6: Простой прямой метод
         result = await self._instagram_simple(url)
         if result:
             return result
         
-        # Метод 6: Новый API подход
+        # Метод 7: Новый API подход
         result = await self._instagram_new_api(url)
         if result:
             return result
