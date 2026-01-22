@@ -389,50 +389,50 @@ class EnhancedMediaDownloader:
         return None
     
     async def _instagram_instaloader(self, url: str) -> Optional[bytes]:
-        """Метод 2: Instaloader"""
+        """Метод 2: Внешние сервисы для Instagram"""
         try:
-            logger.info(f"Instagram instaloader: {url}")
+            logger.info(f"Instagram external services: {url}")
             
-            # Извлекаем shortcode
-            shortcode_match = re.search(r'/p/([^/]+)', url)
-            if not shortcode_match:
-                return None
+            # Пробуем разные внешние сервисы
+            services = [
+                f"https://ddinstagram.com/p/{url.split('/p/')[1].split('/')[0]}",
+                f"https://insta-stories-viewer.com/p/{url.split('/p/')[1].split('/')[0]}",
+                f"https://dumpinstagram.com/p/{url.split('/p/')[1].split('/')[0]}"
+            ]
             
-            shortcode = shortcode_match.group(1)
-            
-            def download():
+            for service_url in services:
                 try:
-                    L = instaloader.Instaloader(
-                        download_pictures=False,
-                        download_videos=True,
-                        download_video_thumbnails=False,
-                        compress_json=False,
-                        request_timeout=30,
-                        sleep=False,
-                        # Добавляем user-agent для обхода блокировок
-                        user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                    )
-                    
-                    # Исправляем метод - правильный синтаксис
-                    post = instaloader.Post.from_shortcode(L.context, shortcode)
-                    
-                    if post.is_video:
-                        return post.video_url
-                    else:
-                        return post.url
-                        
-                except Exception as e:
-                    logger.debug(f"Instaloader error: {e}")
-                return None
-            
-            loop = asyncio.get_event_loop()
-            media_url = await loop.run_in_executor(None, download)
-            
-            if media_url and self.session:
-                return await self._download_from_url(media_url)
+                    if self.session:
+                        async with self.session.get(service_url, timeout=15) as response:
+                            if response.status == 200:
+                                html = await response.text()
+                                
+                                # Ищем прямые ссылки
+                                soup = BeautifulSoup(html, 'html.parser')
+                                
+                                # Ищем видео
+                                video_tags = soup.find_all('video')
+                                for video in video_tags:
+                                    if video.get('src'):
+                                        return await self._download_from_url(video.get('src'))
+                                
+                                # Ищем изображения
+                                img_tags = soup.find_all('meta', property='og:image')
+                                for img in img_tags:
+                                    if img.get('content'):
+                                        return await self._download_from_url(img.get('content'))
+                                
+                                # Ищем в тегах img
+                                img_tags = soup.find_all('img')
+                                for img in img_tags:
+                                    src = img.get('src')
+                                    if src and ('cdninstagram.com' in src or 'instagram.com' in src):
+                                        return await self._download_from_url(src)
+                except:
+                    continue
         
         except Exception as e:
-            logger.debug(f"Instagram instaloader method failed: {e}")
+            logger.debug(f"Instagram external services method failed: {e}")
         return None
     
     async def _instagram_api(self, url: str) -> Optional[bytes]:
